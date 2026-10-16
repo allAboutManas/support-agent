@@ -23,48 +23,18 @@ def issue_refund(order_id:str, amount:float):
     """Mock refund tool"""
     return f"Sucess: Your refund of amount ${amount} is issued for ${order_id}."
 
-my_tools = [
-    {
-        "type" : "function",
-        "function": {
-            "name": "search_database",
-            "description": "Looks up order details by order_id",
-            "parameters": {
-                "type": "object",
-                "properties": {"order_id": {"type": "string"}},
-                "required": ["order_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "issue_refund",
-            "description": "issues refund for an order.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "type": "object",
-                    "properties": {
-                        "order_id": {"type": "string"},
-                        "amount": {"type": "number"}
-                    }
-                },
-                "required": ["order_id", "amount"]
-            }
-        }
-    }
-]
+my_tools = [search_database, issue_refund]
 
 
-# gemini ReAct agent
-def run_gemini_agent(user_prmopt: str): 
-    contents = [
-        types.Content(role="user", parts=[types.Part.from_text(text=user_prmopt)])
-    ]
+# 1. Pass `contents` (chat history) into the function  # <-- NEW
+def run_gemini_agent(user_prompt: str, contents: list): 
+    # 2. Append the new user message to existing history instead of overwriting it  # <-- NEW
+    contents.append(
+        types.Content(role="user", parts=[types.Part.from_text(text=user_prompt)])
+    )
 
     config = types.GenerateContentConfig(
-        system_instruction="You are a e-commerce customer support agent",
+        system_instruction="You are an e-commerce customer support agent.",
         tools=my_tools,
         temperature=0,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
@@ -103,21 +73,37 @@ def run_gemini_agent(user_prmopt: str):
                         tool_result = "Error: Refund rejected by admin"
                     else:
                         tool_result = issue_refund(**args)
-            else: 
-                tool_result = issue_refund(**args)
+                else: 
+                    tool_result = issue_refund(**args)
 
-
-            # Append the tool response back into loop
+            # Append the model's function call request and the tool result into history
             contents.append(response.candidates[0].content)
-            contents.append(types.Content(role="user", 
-                                        parts=[types.Part.from_function_response(name=func_name,
-                                                                                response={"result": tool_result})]))
+            contents.append(
+                types.Content(
+                    role="user", 
+                    parts=[types.Part.from_function_response(
+                        name=func_name,
+                        response={"result": tool_result}
+                    )]
+                )
+            )
         else:
-            print(f"final response:", response.text)
+            # 3. Save the model's final text answer into history before breaking!  # <-- NEW
+            contents.append(response.candidates[0].content)
+            print(f"\nAgent: {response.text}\n")
             break
 
-__name__ == "__main__"
-run_gemini_agent("My monitor ORD-002 has arrived damaged, please refund")
-                
 
-
+# 4. Outer chat loop that keeps `chat_history` alive across turns  # <-- NEW
+if __name__ == "__main__":
+    chat_history = []
+    print("Support Agent Ready! (Type 'exit' to quit)\n")
+    
+    while True:
+        user_input = input("You: ").strip()
+        if user_input.lower() in ["exit", "quit"]:
+            break
+        if not user_input:
+            continue
+            
+        run_gemini_agent(user_input, chat_history)
