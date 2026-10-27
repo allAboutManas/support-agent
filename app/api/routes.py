@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from agent.runner import resolve_refund, run_gemini_agent
+from app.agent.runner import resolve_refund, run_gemini_agent
 from app.api.schema import (
     ApprovalRequest,
     ChatRequest,
