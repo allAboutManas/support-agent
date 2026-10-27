@@ -67,6 +67,8 @@
       border-radius: 7px;
       font-size: 13px;
     }
+    .nav-admin { display: flex; min-height: 41px; align-items: center; gap: 11px; margin-top: 6px; padding: 0 12px; color: #c1d0c5; border-radius: 6px; font-size: 12px; text-decoration: none; }
+    .nav-admin:hover { color: #fff; background: #24483a; }
     .nav-icon { color: var(--lime); font-size: 17px; }
     .sidebar-bottom { margin-top: auto; padding: 13px 10px 3px; border-top: 1px solid #315143; }
     .connection { display: flex; align-items: center; gap: 9px; color: #d7e1d9; font-size: 12px; }
@@ -228,6 +230,7 @@
       </div>
       <div class="side-label">Workspace</div>
       <div class="nav-item" aria-current="page"><span class="nav-icon" aria-hidden="true">◌</span> Customer support</div>
+      <a class="nav-admin" href="/admin"><span class="nav-icon" aria-hidden="true">✓</span> Refund approvals</a>
       <div class="sidebar-bottom">
         <div class="connection"><span class="status-dot" aria-hidden="true"></span> Agent connection</div>
         <div class="connection-note">Ready for a new conversation</div>
@@ -276,8 +279,10 @@
     const welcome = document.querySelector("#welcome");
     const sessionKey = "care-desk-session";
     const historyKey = "care-desk-messages";
+    const updateKey = "care-desk-update-id";
     let sessionId = sessionStorage.getItem(sessionKey) || crypto.randomUUID();
     let pendingApproval = false;
+    let lastUpdateId = Number(localStorage.getItem(updateKey) || 0);
     sessionStorage.setItem(sessionKey, sessionId);
 
     function scrollToLatest() {
@@ -333,18 +338,17 @@
       document.querySelector("#typing-indicator")?.remove();
     }
 
-    function addApprovalCard(details) {
+    function showApprovalWaiting(details) {
       pendingApproval = true;
       const card = document.createElement("div");
-      card.className = "approval";
-      card.innerHTML = '<div class="approval-head"><span class="approval-icon" aria-hidden="true">!</span> Refund approval required</div><div class="approval-detail"></div><div class="approval-actions"><button class="approve" type="button">Approve refund</button><button class="reject" type="button">Reject</button></div>';
+      card.className = "approval approval-pending";
+      card.innerHTML = '<div class="approval-head"><span class="approval-icon" aria-hidden="true">…</span> Awaiting admin review</div><div class="approval-detail"></div>';
       const detail = card.querySelector(".approval-detail");
       detail.append("Order ");
       const order = document.createElement("strong");
       order.textContent = details.order_id;
       detail.append(order, ` · $${Number(details.amount).toFixed(2)}`);
-      card.querySelector(".approve").addEventListener("click", () => resolveApproval(true, card));
-      card.querySelector(".reject").addEventListener("click", () => resolveApproval(false, card));
+      document.querySelector(".approval-pending")?.remove();
       thread.append(card);
       input.disabled = true;
       sendButton.disabled = true;
@@ -372,7 +376,9 @@
         const result = await postJson("/api/chat", { session_id: sessionId, message: text });
         removeTyping();
         addMessage("agent", result.reply);
-        if (result.pending_approval) addApprovalCard(result.pending_approval);
+        lastUpdateId = result.update_id;
+        localStorage.setItem(updateKey, String(lastUpdateId));
+        if (result.pending_approval) showApprovalWaiting(result.pending_approval);
       } catch (error) {
         removeTyping();
         showError(error.message);
@@ -383,24 +389,26 @@
       }
     }
 
-    async function resolveApproval(approved, card) {
-      const buttons = card.querySelectorAll("button");
-      buttons.forEach(button => { button.disabled = true; });
-      showTyping();
+    async function pollSessionStatus() {
       try {
-        const result = await postJson("/api/approval", { session_id: sessionId, approved });
-        removeTyping();
-        pendingApproval = false;
-        card.remove();
-        addMessage("agent", result.reply);
-        if (result.pending_approval) addApprovalCard(result.pending_approval);
-      } catch (error) {
-        removeTyping();
-        buttons.forEach(button => { button.disabled = false; });
-        showError(error.message);
-      } finally {
-        input.disabled = pendingApproval;
-        sendButton.disabled = pendingApproval;
+        const response = await fetch(`/api/chat/status?session_id=${encodeURIComponent(sessionId)}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const status = await response.json();
+        if (status.status === "waiting_for_admin") {
+          if (!pendingApproval && status.pending_approval) showApprovalWaiting(status.pending_approval);
+          return;
+        }
+        if (status.status === "active" && status.update_id > lastUpdateId) {
+          lastUpdateId = status.update_id;
+          localStorage.setItem(updateKey, String(lastUpdateId));
+          pendingApproval = false;
+          document.querySelector(".approval-pending")?.remove();
+          addMessage("agent", status.reply || "The refund request has been resolved.");
+          input.disabled = false;
+          sendButton.disabled = false;
+        }
+      } catch {
+        return;
       }
     }
 
@@ -417,6 +425,8 @@
         sessionId = crypto.randomUUID();
         sessionStorage.setItem(sessionKey, sessionId);
         localStorage.removeItem(historyKey);
+        localStorage.removeItem(updateKey);
+        lastUpdateId = 0;
         pendingApproval = false;
         thread.replaceChildren(welcome);
         welcome.hidden = false;
@@ -435,6 +445,8 @@
       savedMessages.forEach(message => addMessage(message.role, message.text, false));
     }
     input.focus();
+    pollSessionStatus();
+    setInterval(pollSessionStatus, 2000);
   </script>
 </body>
 </html>

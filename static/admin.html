@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f5f0">
+  <title>Refund Approvals | Care Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1b2924;
+      --muted: #76817a;
+      --line: #e4e8e1;
+      --paper: #f4f5f0;
+      --forest: #17352a;
+      --forest-soft: #24483a;
+      --lime: #d5ec8a;
+      --coral: #dc684e;
+      --coral-pale: #fff0eb;
+      font-family: "DM Sans", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    * { box-sizing: border-box; }
+    body { min-width: 0; min-height: 100vh; margin: 0; }
+    button { font: inherit; cursor: pointer; }
+    .shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { display: flex; min-height: 100vh; flex-direction: column; padding: 25px 18px 18px; color: #f1f5ec; background: var(--forest); }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 8px; }
+    .brand-mark { display: grid; width: 35px; height: 35px; place-items: center; color: var(--forest); background: var(--lime); border-radius: 10px 10px 10px 3px; font-family: "Manrope", sans-serif; font-size: 19px; font-weight: 800; }
+    .brand-name { font-family: "Manrope", sans-serif; font-weight: 800; }
+    .brand-caption { margin-top: 1px; color: #a6b8ad; font-size: 11px; }
+    .nav-label { margin: 43px 10px 12px; color: #91a59a; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .nav-link { display: flex; min-height: 43px; align-items: center; gap: 11px; padding: 0 12px; color: #eaf0e9; text-decoration: none; border: 1px solid transparent; border-radius: 7px; font-size: 13px; }
+    .nav-link.active { background: var(--forest-soft); border-color: #355747; }
+    .nav-icon { color: var(--lime); font-size: 17px; }
+    .sidebar-note { margin-top: auto; padding: 13px 10px 3px; color: #91a59a; border-top: 1px solid #315143; font-size: 11px; line-height: 1.5; }
+    main { min-width: 0; }
+    .topbar { display: flex; height: 72px; align-items: center; justify-content: space-between; padding: 0 34px; background: #fbfcf9; border-bottom: 1px solid var(--line); }
+    .topbar-title { font-family: "Manrope", sans-serif; font-size: 15px; font-weight: 700; }
+    .live { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; background: #a9d95f; border-radius: 50%; box-shadow: 0 0 0 3px #a9d95f22; }
+    .content { width: min(940px, 100%); margin: 0 auto; padding: 46px 34px; }
+    .eyebrow { color: var(--coral); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    h1 { margin: 8px 0 7px; font-family: "Manrope", sans-serif; font-size: 30px; letter-spacing: 0; }
+    .intro { margin: 0; color: var(--muted); font-size: 13px; }
+    .queue-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 35px 0 13px; }
+    h2 { margin: 0; font-family: "Manrope", sans-serif; font-size: 14px; letter-spacing: 0; }
+    .queue-state { display: inline-flex; min-height: 27px; align-items: center; gap: 7px; padding: 0 9px; color: #657069; background: #ebeee8; border-radius: 99px; font-size: 10px; font-weight: 700; }
+    .queue-state.waiting { color: #8a422f; background: var(--coral-pale); }
+    .queue-state.processing { color: #58664f; background: #eff3df; }
+    .queue-state .dot { width: 6px; height: 6px; background: currentColor; box-shadow: none; }
+    .request { background: #fff; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+    .request-header { display: flex; min-height: 57px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 19px; border-bottom: 1px solid var(--line); }
+    .request-title { font-size: 12px; font-weight: 700; }
+    .request-id { color: var(--muted); font-size: 11px; }
+    .request-body { padding: 22px 19px 19px; }
+    .amount-label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .amount { margin-top: 5px; font-family: "Manrope", sans-serif; font-size: 34px; font-weight: 700; letter-spacing: 0; }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--line); }
+    .detail-label { color: var(--muted); font-size: 10px; }
+    .detail-value { margin-top: 5px; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+    .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 21px; }
+    .actions button { min-height: 39px; padding: 0 14px; border: 1px solid transparent; border-radius: 5px; font-size: 11px; font-weight: 700; transition: background .16s, border-color .16s; }
+    .approve { color: #fff; background: var(--forest); }
+    .approve:hover { background: #28523f; }
+    .reject { color: #7d3b2b; background: #fff; border-color: #e8c9bf !important; }
+    .reject:hover { background: var(--coral-pale); }
+    button:disabled { cursor: wait; opacity: .55; }
+    .empty { display: flex; min-height: 220px; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; }
+    .empty-mark { display: grid; width: 38px; height: 38px; place-items: center; color: var(--forest); background: #edf2e4; border-radius: 50%; font-size: 18px; }
+    .empty-title { margin-top: 12px; font-family: "Manrope", sans-serif; font-size: 14px; font-weight: 700; }
+    .empty-copy { max-width: 320px; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .result { margin-top: 17px; padding: 14px 15px; color: #344239; background: #edf2e4; border-left: 3px solid #93ad59; border-radius: 3px; font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
+    .result.error { color: #873f2d; background: var(--coral-pale); border-left-color: var(--coral); }
+    .footer { margin-top: 17px; color: #98a19a; font-size: 10px; }
+    @media (max-width: 700px) {
+      .shell { grid-template-columns: minmax(0, 1fr); }
+      .sidebar { display: none; }
+      .topbar { height: 62px; padding: 0 16px; }
+      .content { padding: 31px 16px; }
+      h1 { font-size: 25px; }
+      .request-header { padding: 0 14px; }
+      .request-body { padding: 18px 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Admin navigation">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">c</div><div><div class="brand-name">care desk</div><div class="brand-caption">Customer operations</div></div></div>
+      <div class="nav-label">Workspace</div>
+      <a class="nav-link" href="/" aria-label="Customer support"><span class="nav-icon" aria-hidden="true">◌</span> Customer support</a>
+      <div class="nav-link active" aria-current="page"><span class="nav-icon" aria-hidden="true">✓</span> Refund approvals</div>
+      <div class="sidebar-note">One active customer session<br>Approval decisions resume the agent.</div>
+    </aside>
+    <main>
+      <header class="topbar"><div class="topbar-title">Approval desk</div><div class="live"><span class="dot" aria-hidden="true"></span> Queue updates automatically</div></header>
+      <section class="content" aria-labelledby="page-title">
+        <div class="eyebrow">Care desk <span aria-hidden="true">/</span> Admin</div>
+        <h1 id="page-title">Refund approvals</h1>
+        <p class="intro">Review the customer request and record an approval decision.</p>
+        <div class="queue-heading"><h2>Active request</h2><span class="queue-state" id="queue-state"><span class="dot" aria-hidden="true"></span><span id="queue-state-text">Loading</span></span></div>
+        <div class="request" id="request" aria-live="polite">
+          <div class="empty"><div class="empty-mark" aria-hidden="true">…</div><div class="empty-title">Checking approval queue</div><div class="empty-copy">The active customer session will appear here when an approval is requested.</div></div>
+        </div>
+        <div class="result" id="result" hidden></div>
+        <div class="footer">Updates every 2 seconds</div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const requestPanel = document.querySelector("#request");
+    const statePill = document.querySelector("#queue-state");
+    const stateText = document.querySelector("#queue-state-text");
+    const resultPanel = document.querySelector("#result");
+    let activeRequestKey = "";
+    let decisionInProgress = false;
+
+    function setState(status) {
+      const labels = { idle: "No request", active: "Customer active", processing: "Agent processing", waiting_for_admin: "Needs review" };
+      stateText.textContent = labels[status] || status;
+      statePill.className = `queue-state${status === "waiting_for_admin" ? " waiting" : status === "processing" ? " processing" : ""}`;
+    }
+
+    function emptyState(title, copy) {
+      requestPanel.replaceChildren();
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      const mark = document.createElement("div");
+      mark.className = "empty-mark";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = "✓";
+      const heading = document.createElement("div");
+      heading.className = "empty-title";
+      heading.textContent = title;
+      const detail = document.createElement("div");
+      detail.className = "empty-copy";
+      detail.textContent = copy;
+      empty.append(mark, heading, detail);
+      requestPanel.append(empty);
+    }
+
+    async function decide(approved, sessionId, key) {
+      if (decisionInProgress || activeRequestKey !== key) return;
+      decisionInProgress = true;
+      const buttons = requestPanel.querySelectorAll("button");
+      buttons.forEach(button => { button.disabled = true; });
+      try {
+        const response = await fetch("/api/admin/decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, approved }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Decision could not be saved.");
+        activeRequestKey = "";
+        resultPanel.hidden = false;
+        resultPanel.className = "result";
+        resultPanel.textContent = data.reply;
+        await refreshQueue();
+      } catch (error) {
+        resultPanel.hidden = false;
+        resultPanel.className = "result error";
+        resultPanel.textContent = error.message;
+        buttons.forEach(button => { button.disabled = false; });
+      } finally {
+        decisionInProgress = false;
+      }
+    }
+
+    function renderRequest(data) {
+      const approval = data.pending_approval;
+      if (!approval || !data.session_id || data.status !== "waiting_for_admin") {
+        activeRequestKey = "";
+        const states = {
+          idle: ["No active customer session", "A customer request will appear when the support agent needs a refund decision."],
+          active: ["No approval needed", "The customer session is active. Refund requests above $50 will appear here."],
+          processing: ["Agent is working", "The agent is processing the customer conversation."],
+        };
+        const copy = states[data.status] || ["Approval complete", "The agent has resumed the customer conversation."];
+        emptyState(copy[0], copy[1]);
+        return;
+      }
+
+      const key = `${data.session_id}:${approval.order_id}:${approval.amount}`;
+      if (activeRequestKey === key) return;
+      activeRequestKey = key;
+      requestPanel.replaceChildren();
+      const heading = document.createElement("div");
+      heading.className = "request-header";
+      const title = document.createElement("div");
+      title.className = "request-title";
+      title.textContent = "Refund request";
+      const id = document.createElement("div");
+      id.className = "request-id";
+      id.textContent = "Admin review required";
+      heading.append(title, id);
+
+      const body = document.createElement("div");
+      body.className = "request-body";
+      const amountLabel = document.createElement("div");
+      amountLabel.className = "amount-label";
+      amountLabel.textContent = "Requested refund";
+      const amount = document.createElement("div");
+      amount.className = "amount";
+      amount.textContent = `$${Number(approval.amount).toFixed(2)}`;
+      const details = document.createElement("div");
+      details.className = "detail-grid";
+      const orderCell = document.createElement("div");
+      const orderLabel = document.createElement("div");
+      orderLabel.className = "detail-label";
+      orderLabel.textContent = "Order ID";
+      const orderValue = document.createElement("div");
+      orderValue.className = "detail-value";
+      orderValue.textContent = approval.order_id;
+      orderCell.append(orderLabel, orderValue);
+      const sessionCell = document.createElement("div");
+      const sessionLabel = document.createElement("div");
+      sessionLabel.className = "detail-label";
+      sessionLabel.textContent = "Active session";
+      const sessionValue = document.createElement("div");
+      sessionValue.className = "detail-value";
+      sessionValue.textContent = data.session_id;
+      sessionCell.append(sessionLabel, sessionValue);
+      details.append(orderCell, sessionCell);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      const approve = document.createElement("button");
+      approve.className = "approve";
+      approve.type = "button";
+      approve.textContent = "Approve refund";
+      approve.addEventListener("click", () => decide(true, data.session_id, key));
+      const reject = document.createElement("button");
+      reject.className = "reject";
+      reject.type = "button";
+      reject.textContent = "Reject request";
+      reject.addEventListener("click", () => decide(false, data.session_id, key));
+      actions.append(approve, reject);
+      body.append(amountLabel, amount, details, actions);
+      requestPanel.append(heading, body);
+    }
+
+    async function refreshQueue() {
+      try {
+        const response = await fetch("/api/admin/pending", { cache: "no-store" });
+        if (!response.ok) throw new Error("Approval queue is unavailable.");
+        const data = await response.json();
+        setState(data.status);
+        renderRequest(data);
+      } catch (error) {
+        setState("offline");
+        emptyState("Dashboard unavailable", error.message);
+      }
+    }
+
+    refreshQueue();
+    setInterval(refreshQueue, 2000);
+  </script>
+</body>
+</html>

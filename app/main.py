@@ -12,3 +12,8 @@ app.include_router(router, prefix="/api")
 @app.get("/", include_in_schema=False)
 def index():
     return FileResponse(BASE_DIR / "static" / "index.html")
+
+
+@app.get("/admin", include_in_schema=False)
+def admin():
+    return FileResponse(BASE_DIR / "static" / "admin.html")

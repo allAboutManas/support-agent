@@ -35,7 +35,7 @@ def _continue_agent(contents: list):
             if requires_refund_approval(amount):
                 contents.append(response.candidates[0].content)
                 return {
-                    "reply": "This refund requires your approval.",
+                    "reply": "Your refund request was sent to an admin for review.",
                     "pending_approval": {
                         "order_id": arguments["order_id"],
                         "amount": amount,

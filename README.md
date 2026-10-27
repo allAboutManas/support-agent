@@ -17,7 +17,7 @@ Set `GEMINI_API_KEY` in `.env`, then start the web app:
 uvicorn app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000. The API endpoints are `/api/chat`, `/api/approval`, and `/api/reset`.
+Open http://127.0.0.1:8000 for customer support or http://127.0.0.1:8000/admin for the approval dashboard. The API endpoints are `/api/chat`, `/api/chat/status`, `/api/admin/pending`, `/api/admin/decision`, and `/api/reset`.
 
 ## Project layout
 
@@ -27,3 +27,4 @@ Open http://127.0.0.1:8000. The API endpoints are `/api/chat`, `/api/approval`, 
 - `static/index.html` contains the browser chat interface.
 
 Order data and chat sessions are in memory for this demo. Refund processing is a mock operation and does not issue real payments.
+Only one customer session is supported at a time. The admin dashboard has no authentication and should only be exposed on a trusted local network.

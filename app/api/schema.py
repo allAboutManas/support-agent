@@ -14,9 +14,10 @@ class PendingApproval(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     pending_approval: PendingApproval | None = None
+    update_id: int
 
 
-class ApprovalRequest(BaseModel):
+class AdminDecisionRequest(BaseModel):
     session_id: str
     approved: bool
 
@@ -27,3 +28,16 @@ class ResetRequest(BaseModel):
 
 class ResetResponse(BaseModel):
     ok: bool
+
+
+class SessionStatusResponse(BaseModel):
+    status: str
+    reply: str | None = None
+    pending_approval: PendingApproval | None = None
+    update_id: int
+
+
+class AdminPendingResponse(BaseModel):
+    session_id: str | None = None
+    status: str
+    pending_approval: PendingApproval | None = None
