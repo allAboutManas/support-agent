@@ -80,7 +80,14 @@ def chat(request: ChatRequest):
 @router.get("/chat/status", response_model=SessionStatusResponse)
 def chat_status(session_id: str):
     with session_lock:
-        session = _session_state(session_id)
+        if not active_session or active_session["session_id"] != session_id:
+            return {
+                "status": "idle",
+                "reply": None,
+                "pending_approval": None,
+                "update_id": 0,
+            }
+        session = active_session
         return {
             "status": session["status"],
             "reply": session["reply"],

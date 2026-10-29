@@ -283,6 +283,7 @@
     let sessionId = sessionStorage.getItem(sessionKey) || crypto.randomUUID();
     let pendingApproval = false;
     let lastUpdateId = Number(localStorage.getItem(updateKey) || 0);
+    let statusPollTimer = null;
     sessionStorage.setItem(sessionKey, sessionId);
 
     function scrollToLatest() {
@@ -338,6 +339,18 @@
       document.querySelector("#typing-indicator")?.remove();
     }
 
+    function startStatusPolling() {
+      if (statusPollTimer) return;
+      pollSessionStatus();
+      statusPollTimer = setInterval(pollSessionStatus, 2000);
+    }
+
+    function stopStatusPolling() {
+      if (!statusPollTimer) return;
+      clearInterval(statusPollTimer);
+      statusPollTimer = null;
+    }
+
     function showApprovalWaiting(details) {
       pendingApproval = true;
       const card = document.createElement("div");
@@ -378,7 +391,12 @@
         addMessage("agent", result.reply);
         lastUpdateId = result.update_id;
         localStorage.setItem(updateKey, String(lastUpdateId));
-        if (result.pending_approval) showApprovalWaiting(result.pending_approval);
+        if (result.pending_approval) {
+          showApprovalWaiting(result.pending_approval);
+          startStatusPolling();
+        } else {
+          stopStatusPolling();
+        }
       } catch (error) {
         removeTyping();
         showError(error.message);
@@ -394,6 +412,14 @@
         const response = await fetch(`/api/chat/status?session_id=${encodeURIComponent(sessionId)}`, { cache: "no-store" });
         if (!response.ok) return;
         const status = await response.json();
+        if (status.status === "idle") {
+          pendingApproval = false;
+          document.querySelector(".approval-pending")?.remove();
+          input.disabled = false;
+          sendButton.disabled = false;
+          stopStatusPolling();
+          return;
+        }
         if (status.status === "waiting_for_admin") {
           if (!pendingApproval && status.pending_approval) showApprovalWaiting(status.pending_approval);
           return;
@@ -406,6 +432,7 @@
           addMessage("agent", status.reply || "The refund request has been resolved.");
           input.disabled = false;
           sendButton.disabled = false;
+          stopStatusPolling();
         }
       } catch {
         return;
@@ -421,6 +448,7 @@
     });
     document.querySelector("#new-chat").addEventListener("click", async () => {
       try {
+        stopStatusPolling();
         await postJson("/api/reset", { session_id: sessionId });
         sessionId = crypto.randomUUID();
         sessionStorage.setItem(sessionKey, sessionId);
@@ -443,10 +471,9 @@
     if (savedMessages.length) {
       welcome.hidden = true;
       savedMessages.forEach(message => addMessage(message.role, message.text, false));
+      startStatusPolling();
     }
     input.focus();
-    pollSessionStatus();
-    setInterval(pollSessionStatus, 2000);
   </script>
 </body>
 </html>
