@@ -1,9 +1,10 @@
 import logging
 from threading import Lock
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.agent.runner import resolve_refund, run_gemini_agent
+from app.auth import get_current_user
 from app.api.schema import (
     AdminDecisionRequest,
     AdminPendingResponse,
@@ -17,39 +18,57 @@ from app.api.schema import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-active_session: dict | None = None
+active_sessions: dict[int, dict] = {}
 session_lock = Lock()
 
 
 def _session_state(session_id: str) -> dict:
-    if not active_session or active_session["session_id"] != session_id:
+    session = next(
+        (
+            candidate
+            for candidate in active_sessions.values()
+            if candidate["session_id"] == session_id
+        ),
+        None,
+    )
+    if session is None:
         raise HTTPException(status_code=404, detail="Active chat session not found.")
-    return active_session
+    return session
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
-    global active_session
+def chat(request: ChatRequest, user: dict = Depends(get_current_user)):
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    user_id = user["id"]
     with session_lock:
-        if active_session is None:
-            active_session = {
+        session = active_sessions.get(user_id)
+        if any(
+            candidate["session_id"] == request.session_id
+            and candidate["user_id"] != user_id
+            for candidate in active_sessions.values()
+        ):
+            raise HTTPException(
+                status_code=409, detail="That chat session is already in use."
+            )
+        if session is None:
+            session = {
                 "session_id": request.session_id,
+                "user_id": user_id,
                 "contents": [],
                 "pending_approval": None,
                 "status": "active",
                 "reply": None,
                 "update_id": 0,
             }
-        elif active_session["session_id"] != request.session_id:
+            active_sessions[user_id] = session
+        elif session["session_id"] != request.session_id:
             raise HTTPException(
                 status_code=409,
-                detail="Another customer session is active. Try again after it ends.",
+                detail="A chat is already active for this account. Start a new chat first.",
             )
 
-        session = active_session
         if session["pending_approval"]:
             raise HTTPException(
                 status_code=409,
@@ -60,7 +79,9 @@ def chat(request: ChatRequest):
         session["status"] = "processing"
 
     try:
-        result = run_gemini_agent(request.message.strip(), session["contents"])
+        result = run_gemini_agent(
+            request.message.strip(), session["contents"], user_id
+        )
         with session_lock:
             session["pending_approval"] = result["pending_approval"]
             session["status"] = "waiting_for_admin" if result["pending_approval"] else "active"
@@ -78,16 +99,16 @@ def chat(request: ChatRequest):
 
 
 @router.get("/chat/status", response_model=SessionStatusResponse)
-def chat_status(session_id: str):
+def chat_status(session_id: str, user: dict = Depends(get_current_user)):
     with session_lock:
-        if not active_session or active_session["session_id"] != session_id:
+        session = active_sessions.get(user["id"])
+        if not session or session["session_id"] != session_id:
             return {
                 "status": "idle",
                 "reply": None,
                 "pending_approval": None,
                 "update_id": 0,
             }
-        session = active_session
         return {
             "status": session["status"],
             "reply": session["reply"],
@@ -99,12 +120,21 @@ def chat_status(session_id: str):
 @router.get("/admin/pending", response_model=AdminPendingResponse)
 def admin_pending():
     with session_lock:
-        if not active_session:
+        sessions = list(active_sessions.values())
+        if not sessions:
             return {"session_id": None, "status": "idle", "pending_approval": None}
+        session = next(
+            (
+                candidate
+                for candidate in sessions
+                if candidate["status"] == "waiting_for_admin"
+            ),
+            sessions[0],
+        )
         return {
-            "session_id": active_session["session_id"],
-            "status": active_session["status"],
-            "pending_approval": active_session["pending_approval"],
+            "session_id": session["session_id"],
+            "status": session["status"],
+            "pending_approval": session["pending_approval"],
         }
 
 
@@ -124,6 +154,7 @@ def admin_decision(request: AdminDecisionRequest):
             session["contents"],
             **pending,
             approved=request.approved,
+            user_id=session["user_id"],
         )
         with session_lock:
             session["pending_approval"] = result["pending_approval"]
@@ -143,10 +174,10 @@ def admin_decision(request: AdminDecisionRequest):
 
 
 @router.post("/reset", response_model=ResetResponse)
-def reset(request: ResetRequest):
-    global active_session
+def reset(request: ResetRequest, user: dict = Depends(get_current_user)):
     with session_lock:
-        if active_session and active_session["session_id"] != request.session_id:
+        session = active_sessions.get(user["id"])
+        if session and session["session_id"] != request.session_id:
             raise HTTPException(status_code=409, detail="That chat session is not active.")
-        active_session = None
+        active_sessions.pop(user["id"], None)
     return {"ok": True}

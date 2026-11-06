@@ -74,6 +74,17 @@
     .connection { display: flex; align-items: center; gap: 9px; color: #d7e1d9; font-size: 12px; }
     .status-dot { width: 8px; height: 8px; background: #a9d95f; border-radius: 50%; box-shadow: 0 0 0 3px #a9d95f22; }
     .connection-note { margin: 7px 0 0 17px; color: #91a59a; font-size: 11px; }
+    .auth-panel { display: grid; min-height: 100vh; place-items: center; padding: 24px; }
+    .auth-panel[hidden], .shell[hidden] { display: none; }
+    .auth-card { width: min(420px, 100%); padding: 32px; background: #fff; border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 18px 55px #1b29240d; }
+    .auth-card h1 { margin: 8px 0; font-family: "Manrope", sans-serif; font-size: 25px; }
+    .auth-copy { margin: 0 0 23px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .auth-form { display: grid; gap: 13px; }
+    .auth-form label { display: grid; gap: 6px; color: #4a574f; font-size: 12px; font-weight: 600; }
+    .auth-form input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid var(--line); border-radius: 5px; }
+    .auth-submit { min-height: 42px; color: #fff; background: var(--forest); border: 0; border-radius: 5px; font-weight: 700; }
+    .auth-toggle { margin-top: 16px; padding: 0; color: var(--forest-soft); background: transparent; border: 0; font-size: 12px; font-weight: 700; }
+    .auth-error { min-height: 18px; margin: 10px 0 0; color: #a34432; font-size: 12px; }
 
     .workspace { display: flex; min-width: 0; flex-direction: column; }
     .topbar {
@@ -88,6 +99,8 @@
     .top-title { font-family: "Manrope", sans-serif; font-size: 15px; font-weight: 700; }
     .top-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
     .top-meta .status-dot { width: 7px; height: 7px; }
+    .account-actions { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+    .logout { padding: 8px 10px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 5px; font-size: 11px; font-weight: 700; }
     .new-chat {
       display: inline-flex;
       align-items: center;
@@ -202,6 +215,8 @@
       .sidebar { display: none; }
       .topbar { height: 62px; padding: 0 16px; }
       .top-meta { display: none; }
+      .account-actions { gap: 7px; font-size: 10px; }
+      .logout { padding: 7px; }
       .chat-wrap { padding: 0 16px; }
       .chat-heading { padding: 25px 0 17px; }
       .thread { gap: 18px; padding-top: 21px; }
@@ -222,7 +237,25 @@
   </style>
 </head>
 <body>
-  <div class="shell">
+  <section class="auth-panel" id="auth-panel" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <div class="eyebrow">Care desk <span aria-hidden="true">/</span> Customer account</div>
+      <h1 id="auth-title">Welcome back</h1>
+      <p class="auth-copy" id="auth-copy">Sign in to get support for your orders.</p>
+      <form class="auth-form" id="auth-form">
+        <label>Username
+          <input id="auth-username" name="username" autocomplete="username" minlength="3" maxlength="50" required>
+        </label>
+        <label>Password
+          <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required>
+        </label>
+        <button class="auth-submit" id="auth-submit" type="submit">Sign in</button>
+      </form>
+      <button class="auth-toggle" id="auth-toggle" type="button">Create an account</button>
+      <p class="auth-error" id="auth-error" role="alert"></p>
+    </div>
+  </section>
+  <div class="shell" id="app-shell" hidden>
     <aside class="sidebar" aria-label="Workspace navigation">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">c</div>
@@ -241,6 +274,7 @@
       <header class="topbar">
         <div class="top-title">Customer support</div>
         <div class="top-meta"><span class="status-dot" aria-hidden="true"></span> Gemini agent</div>
+        <div class="account-actions"><span id="account-name"></span><button class="logout" id="logout" type="button">Sign out</button></div>
         <button class="new-chat" id="new-chat" type="button" aria-label="Start a new chat" title="Start a new chat"><span aria-hidden="true">+</span><span class="new-chat-label">New chat</span></button>
       </header>
 
@@ -255,9 +289,9 @@
             <h2>How can I help with your order?</h2>
             <p>Look up an order or get help with a return.</p>
             <div class="suggestions">
-              <button class="suggestion" type="button" data-prompt="Can you check order ORD-001?">Check an order</button>
-              <button class="suggestion" type="button" data-prompt="My order ORD-002 arrived damaged. What can you do?">Report a damaged item</button>
-              <button class="suggestion" type="button" data-prompt="I'd like a refund for order ORD-002">Ask about a refund</button>
+              <button class="suggestion" type="button" data-prompt="I need help with an order.">Check an order</button>
+              <button class="suggestion" type="button" data-prompt="I want to report a damaged order.">Report a damaged item</button>
+              <button class="suggestion" type="button" data-prompt="I would like to ask about a refund.">Ask about a refund</button>
             </div>
           </div>
         </div>
@@ -272,19 +306,109 @@
     </main>
   </div>
   <script>
+    const authPanel = document.querySelector("#auth-panel");
+    const authForm = document.querySelector("#auth-form");
+    const authError = document.querySelector("#auth-error");
+    const authTokenKey = "care-desk-access-token";
     const thread = document.querySelector("#thread");
     const form = document.querySelector("#chat-form");
     const input = document.querySelector("#message-input");
     const sendButton = document.querySelector("#send-button");
     const welcome = document.querySelector("#welcome");
-    const sessionKey = "care-desk-session";
-    const historyKey = "care-desk-messages";
-    const updateKey = "care-desk-update-id";
-    let sessionId = sessionStorage.getItem(sessionKey) || crypto.randomUUID();
+    let sessionKey;
+    let historyKey;
+    let updateKey;
+    let sessionId;
     let pendingApproval = false;
-    let lastUpdateId = Number(localStorage.getItem(updateKey) || 0);
+    let lastUpdateId = 0;
     let statusPollTimer = null;
-    sessionStorage.setItem(sessionKey, sessionId);
+
+    function configureUser(user) {
+      const accountKey = user.user_id;
+      sessionKey = `care-desk-session:${accountKey}`;
+      historyKey = `care-desk-messages:${accountKey}`;
+      updateKey = `care-desk-update-id:${accountKey}`;
+      sessionId = sessionStorage.getItem(sessionKey) || crypto.randomUUID();
+      sessionStorage.setItem(sessionKey, sessionId);
+      lastUpdateId = Number(localStorage.getItem(updateKey) || 0);
+      document.querySelector("#account-name").textContent = user.username;
+      document.querySelector("#app-shell").hidden = false;
+      authPanel.hidden = true;
+
+      const savedMessages = JSON.parse(localStorage.getItem(historyKey) || "[]");
+      if (savedMessages.length) {
+        welcome.hidden = true;
+        savedMessages.forEach(message => addMessage(message.role, message.text, false));
+        startStatusPolling();
+      }
+      input.focus();
+    }
+
+    function authHeaders() {
+      return { Authorization: `Bearer ${sessionStorage.getItem(authTokenKey)}` };
+    }
+
+    let authMode = "login";
+    document.querySelector("#auth-toggle").addEventListener("click", () => {
+      authMode = authMode === "login" ? "register" : "login";
+      document.querySelector("#auth-title").textContent =
+        authMode === "login" ? "Welcome back" : "Create your account";
+      document.querySelector("#auth-copy").textContent =
+        authMode === "login"
+          ? "Sign in to get support for your orders."
+          : "Create an account to get support for your orders.";
+      document.querySelector("#auth-submit").textContent =
+        authMode === "login" ? "Sign in" : "Create account";
+      document.querySelector("#auth-toggle").textContent =
+        authMode === "login" ? "Create an account" : "Already have an account? Sign in";
+      document.querySelector("#auth-password").autocomplete =
+        authMode === "login" ? "current-password" : "new-password";
+      authError.textContent = "";
+    });
+
+    authForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      authError.textContent = "";
+      const username = document.querySelector("#auth-username").value.trim();
+      const password = document.querySelector("#auth-password").value;
+      try {
+        let response;
+        if (authMode === "register") {
+          response = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+        } else {
+          response = await fetch("/api/auth/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ username, password }),
+          });
+        }
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || "Unable to authenticate.");
+        sessionStorage.setItem(authTokenKey, result.access_token);
+        configureUser(result);
+      } catch (error) {
+        authError.textContent = error.message;
+      }
+    });
+
+    async function restoreAuthentication() {
+      const token = sessionStorage.getItem(authTokenKey);
+      if (!token) return;
+      try {
+        const response = await fetch("/api/auth/me", {
+          headers: authHeaders(),
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error("Login session expired.");
+        configureUser(await response.json());
+      } catch {
+        sessionStorage.removeItem(authTokenKey);
+      }
+    }
 
     function scrollToLatest() {
       thread.scrollTop = thread.scrollHeight;
@@ -371,7 +495,7 @@
     async function postJson(path, body) {
       const response = await fetch(path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(body),
       });
       const result = await response.json();
@@ -409,7 +533,7 @@
 
     async function pollSessionStatus() {
       try {
-        const response = await fetch(`/api/chat/status?session_id=${encodeURIComponent(sessionId)}`, { cache: "no-store" });
+        const response = await fetch(`/api/chat/status?session_id=${encodeURIComponent(sessionId)}`, { headers: authHeaders(), cache: "no-store" });
         if (!response.ok) return;
         const status = await response.json();
         if (status.status === "idle") {
@@ -467,13 +591,18 @@
       }
     });
 
-    const savedMessages = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    if (savedMessages.length) {
-      welcome.hidden = true;
-      savedMessages.forEach(message => addMessage(message.role, message.text, false));
-      startStatusPolling();
-    }
-    input.focus();
+    document.querySelector("#logout").addEventListener("click", async () => {
+      try {
+        await postJson("/api/auth/logout", {});
+      } catch {
+        // Clear the local login even when the server session has already expired.
+      }
+      stopStatusPolling();
+      sessionStorage.removeItem(authTokenKey);
+      location.reload();
+    });
+
+    restoreAuthentication();
   </script>
 </body>
 </html>
